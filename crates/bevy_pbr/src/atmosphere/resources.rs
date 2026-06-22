@@ -134,6 +134,7 @@ impl AtmosphereBindGroupLayouts {
                 (
                     (0, uniform_buffer::<GpuAtmosphere>(true)),
                     (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     // scattering medium luts and sampler
@@ -555,15 +556,17 @@ pub(super) fn prepare_atmosphere_transforms(
     for (entity, view, gpu_atmosphere) in &views {
         // Camera position in atmosphere space
         let cam_world = view.world_from_view.translation();
-        let cam_pos = Vec3A::from(
+        let planet_center_float = Vec3A::from(
             gpu_atmosphere
                 .world_to_atmosphere
-                .transform_point3(cam_world),
+                .inverse()
+                .w_axis
+                .truncate(),
         );
-
-        // Up is the local planet surface normal.
-        let atmo_y = cam_pos.try_normalize().unwrap_or(Vec3A::Y);
-
+        // Up is the planet surface normal at the camera position, in world space.
+        let atmo_y = (Vec3A::from(cam_world) - planet_center_float)
+            .try_normalize()
+            .unwrap_or(Vec3A::Y);
         // World-horizontal reference for back, projected orthogonal to atmo_y.
         let world_ref = Vec3A::NEG_Z;
         let ref_horizontal = world_ref - atmo_y * atmo_y.dot(world_ref);
@@ -574,7 +577,7 @@ pub(super) fn prepare_atmosphere_transforms(
             atmo_x,
             atmo_y,
             atmo_z,
-            view.world_from_view.translation_vec3a(),
+            planet_center_float,
         ));
         // The shader only uses the upper-left 3x3 block, where transpose equals inverse for
         // orthonormal matrices and is cheaper than computing the full inverse.
@@ -736,6 +739,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 // uniforms
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
                 (3, view_binding.clone()),
                 (4, lights_binding.clone()),
                 // scattering medium luts and sampler

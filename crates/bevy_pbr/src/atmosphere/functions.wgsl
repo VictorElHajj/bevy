@@ -155,9 +155,7 @@ fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
     let view_pos = view.view_from_clip * vec4(ndc, 1.0);
     let p_view = view_pos.xyz / view_pos.w;
     let p_world = (view.world_from_view * vec4(p_view, 1.0)).xyz;
-    let p_atmo = (atmosphere.world_to_atmosphere * vec4(p_world, 1.0)).xyz;
-    let cam_atmo = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
-    return length(p_atmo - cam_atmo);
+    return length(p_world - view.world_position);
 }
 
 // RGB channels: total inscattered light along the camera ray to the current sample.
@@ -307,8 +305,10 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
-    let atmo_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
-    return clamp_to_surface(atmosphere, atmo_pos);
+    // Camera position relative to planet center, in float-world space.                              
+    let planet_center = atmosphere_transforms.world_from_atmosphere[3].xyz;                          
+    let pos = view.world_position - planet_center;                                                   
+    return clamp_to_surface(atmosphere, pos);             
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
