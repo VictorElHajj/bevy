@@ -85,11 +85,12 @@ use resources::{
 };
 use tracing::warn;
 
-use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer};
+use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer, AtmosphereBindGroups};
 
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-    AtmosphereLutPipelines, AtmosphereSampler,
+    AtmosphereLutPipelines, AtmosphereSampler, AtmosphereTextures, AtmosphereTransformsOffset,
+    RenderSkyPipelineId,
 };
 
 #[doc(hidden)]
@@ -210,24 +211,28 @@ impl Plugin for AtmospherePlugin {
 pub fn extract_atmosphere(
     mut commands: Commands,
     atmosphere_entities: Extract<Query<(Entity, &Atmosphere, &GlobalTransform)>>,
-    cameras: Extract<Query<(RenderEntity, &AtmosphereSettings, &GlobalTransform), With<Camera3d>>>,
+    cameras: Extract<
+        Query<(RenderEntity, Option<&AtmosphereSettings>, &GlobalTransform), With<Camera3d>>,
+    >,
 ) {
     let candidates: Vec<(Entity, &Atmosphere, &GlobalTransform)> =
         atmosphere_entities.iter().collect();
 
-    if candidates.is_empty() {
-        for (render_entity, ..) in &cameras {
-            commands
-                .entity(render_entity)
-                .remove::<ExtractedAtmosphere>();
-            commands
-                .entity(render_entity)
-                .remove::<GpuAtmosphereSettings>();
-        }
-        return;
-    }
-
     for (render_entity, settings, cam_global) in &cameras {
+        // Remove any stale render-world state when AtmosphereSettings is removed or candidates is missing
+        let (Some(settings), false) = (settings, candidates.is_empty()) else {
+            commands
+                .entity(render_entity)
+                .remove::<ExtractedAtmosphere>()
+                .remove::<GpuAtmosphereSettings>()
+                .remove::<GpuAtmosphere>()
+                .remove::<AtmosphereTextures>()
+                .remove::<AtmosphereTransformsOffset>()
+                .remove::<RenderSkyPipelineId>()
+                .remove::<AtmosphereBindGroups>();
+            continue;
+        };
+
         let cam_world = cam_global.translation();
         let selected = candidates
             .iter()
