@@ -221,15 +221,15 @@ pub fn extract_atmosphere(
     for (render_entity, settings, cam_global) in &cameras {
         // Remove any stale render-world state when AtmosphereSettings is removed or candidates is missing
         let (Some(settings), false) = (settings, candidates.is_empty()) else {
-            commands
-                .entity(render_entity)
-                .remove::<ExtractedAtmosphere>()
-                .remove::<GpuAtmosphereSettings>()
-                .remove::<GpuAtmosphere>()
-                .remove::<AtmosphereTextures>()
-                .remove::<AtmosphereTransformsOffset>()
-                .remove::<RenderSkyPipelineId>()
-                .remove::<AtmosphereBindGroups>();
+            commands.entity(render_entity).try_remove::<(
+                ExtractedAtmosphere,
+                GpuAtmosphereSettings,
+                GpuAtmosphere,
+                AtmosphereTextures,
+                AtmosphereTransformsOffset,
+                RenderSkyPipelineId,
+                AtmosphereBindGroups,
+            )>();
             continue;
         };
 
