@@ -928,14 +928,14 @@ color *= (*light).color.rgb * texture_sample;
     let mu_light = dot(L, local_up);
 
     // Sample atmosphere
-    var transmittance = vec3(1.0);
     if r < atmosphere.outer_radius {
-        transmittance = sample_transmittance_lut(r, mu_light);
+        let local_up = normalize(P_clamped);
+        let mu_light = dot(L, local_up);
+        let transmittance = sample_transmittance_lut(r, mu_light);
+        let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
+        // Apply atmospheric effects
+        color *= transmittance * sun_visibility;
     }
-    let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
-
-    // Apply atmospheric effects
-    color *= transmittance * sun_visibility;
 #endif
 
     return color;
